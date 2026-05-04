@@ -31,6 +31,13 @@ def mcp_manifest():
         ]
     }
 
+@app.get("/debug")
+def debug():
+    return {
+        "AZDO_ORG": AZDO_ORG,
+        "AZDO_PROJECT": AZDO_PROJECT
+    }
+
 @app.post("/mcp")
 async def mcp_handler(request: Request):
     body = await request.json()
