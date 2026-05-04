@@ -46,16 +46,16 @@ async def mcp_handler(request: Request):
     except:
         body = {}
 
-    tool = body.get("tool") or body.get("name")
+    tool = body.get("tool") or body.get("name") or "unknown"
     request_id = body.get("id", 1)
 
     def stream():
 
-        if tool == "get_projects":
+        try:
+            if tool == "get_projects":
 
-            url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
+                url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
 
-            try:
                 import requests
                 res = requests.get(url)
 
@@ -73,33 +73,31 @@ async def mcp_handler(request: Request):
                     }
                 }
 
-            except Exception as e:
+            else:
                 payload = {
                     "id": request_id,
                     "result": {
                         "content": [
                             {
                                 "type": "text",
-                                "text": f"Error: {str(e)}"
+                                "text": f"Unknown tool: {tool}"
                             }
                         ]
                     }
                 }
 
-            yield f"event: message\ndata: {json.dumps(payload)}\n\n"
-            return
-
-        payload = {
-            "id": request_id,
-            "result": {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Unknown tool: {tool}"
-                    }
-                ]
+        except Exception as e:
+            payload = {
+                "id": request_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Internal error: {str(e)}"
+                        }
+                    ]
+                }
             }
-        }
 
         yield f"event: message\ndata: {json.dumps(payload)}\n\n"
 
