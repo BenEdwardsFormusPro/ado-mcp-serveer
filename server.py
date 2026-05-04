@@ -40,70 +40,22 @@ def debug():
 
 @app.post("/mcp")
 async def mcp_handler(request: Request):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except:
+        body = {}
 
     tool = body.get("tool") or body.get("name")
     request_id = body.get("id", 1)
 
-    auth_header = request.headers.get("authorization", "")
-    access_token = auth_header.replace("Bearer ", "") if auth_header else None
-
-    def stream():
-
-        try:
-            if tool != "get_projects":
-                yield f"event: message\ndata: {json.dumps({
-                    'id': request_id,
-                    'result': {
-                        'content': [{
-                            'type': 'text',
-                            'text': f'Unknown tool: {tool}'
-                        }]
-                    }
-                })}\n\n"
-                return
-
-            if not AZDO_ORG:
-                yield f"event: message\ndata: {json.dumps({
-                    'id': request_id,
-                    'result': {
-                        'content': [{
-                            'type': 'text',
-                            'text': 'AZDO_ORG not configured'
-                        }]
-                    }
-                })}\n\n"
-                return
-
-            url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
-
-            headers = {}
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
-
-            res = requests.get(url, headers=headers)
-
-            content = res.json() if "application/json" in res.headers.get("content-type", "") else res.text
-
-            yield f"event: message\ndata: {json.dumps({
-                'id': request_id,
-                'result': {
-                    'content': [{
-                        'type': 'text',
-                        'text': str(content)
-                    }]
+    return {
+        "id": request_id,
+        "result": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Received tool: {tool}"
                 }
-            })}\n\n"
-
-        except Exception as e:
-            yield f"event: message\ndata: {json.dumps({
-                'id': request_id,
-                'result': {
-                    'content': [{
-                        'type': 'text',
-                        'text': f'Error: {str(e)}'
-                    }]
-                }
-            })}\n\n"
-
-    return StreamingResponse(stream(), media_type="text/event-stream")
+            ]
+        }
+    }
