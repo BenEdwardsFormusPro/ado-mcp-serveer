@@ -33,14 +33,13 @@ def mcp_manifest():
 async def mcp_handler(request: Request):
     body = await request.json()
 
-    tool = body.get("tool")
-
     access_token = request.headers.get("authorization", "").replace("Bearer ", "")
 
     if not access_token:
-        return {
-            "error": "Missing token"
-        }
+        return {"error": "Missing token"}
+
+    tool = body.get("tool") or body.get("name")
+    args = body.get("arguments") or body.get("input") or {}
 
     if tool == "get_projects":
 
@@ -54,11 +53,8 @@ async def mcp_handler(request: Request):
         )
 
         return {
-            "tool": "get_projects",
-            "status": res.status_code,
+            "tool": tool,
             "result": res.json()
         }
 
-    return {
-        "error": f"Unknown tool: {tool}"
-    }
+    return {"error": f"Unknown tool: {tool}"}
