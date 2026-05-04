@@ -8,12 +8,10 @@ app = FastAPI()
 AZDO_ORG = os.getenv("AZDO_ORG")
 AZDO_PROJECT = os.getenv("AZDO_PROJECT")
 
-@app.api_route("/", methods=["GET", "HEAD", "OPTIONS"])
+@app.api_route("/", methods=["GET", "HEAD", "OPTIONS", "POST"])
 def root():
-    return JSONResponse({
-        "status": "ok",
-        "service": "ado-mcp-server"
-    })
+    print("FOUNDRY HIT ROOT")
+    return JSONResponse({"status": "ok", "service": "ado-mcp-server"})
 
 @app.get("/.well-known/mcp")
 def mcp_manifest():
@@ -36,6 +34,8 @@ def mcp_manifest():
 @app.post("/mcp")
 async def mcp_handler(request: Request):
     try:
+        print("FOUNDRY HIT MCP")
+
         body = await request.json()
 
         tool = body.get("tool") or body.get("name")
