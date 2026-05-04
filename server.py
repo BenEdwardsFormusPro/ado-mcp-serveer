@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 import requests
 import os
 
@@ -10,8 +9,7 @@ AZDO_PROJECT = os.getenv("AZDO_PROJECT")
 
 @app.api_route("/", methods=["GET", "HEAD", "OPTIONS", "POST"])
 def root():
-    print("FOUNDRY HIT ROOT")
-    return JSONResponse({"status": "ok", "service": "ado-mcp-server"})
+    return {"status": "ok", "service": "ado-mcp-server"}
 
 @app.get("/.well-known/mcp")
 def mcp_manifest():
@@ -34,12 +32,11 @@ def mcp_manifest():
 @app.post("/mcp")
 async def mcp_handler(request: Request):
     try:
-        print("FOUNDRY HIT MCP")
-
         body = await request.json()
 
         tool = body.get("tool") or body.get("name")
         args = body.get("arguments") or body.get("input") or {}
+        request_id = body.get("id", 1)
 
         auth_header = request.headers.get("authorization", "")
         access_token = auth_header.replace("Bearer ", "") if auth_header else None
@@ -47,7 +44,17 @@ async def mcp_handler(request: Request):
         if tool == "get_projects":
 
             if not AZDO_ORG:
-                return {"error": "AZDO_ORG not set"}
+                return {
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "AZDO_ORG not set"
+                            }
+                        ]
+                    }
+                }
 
             url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
 
@@ -61,23 +68,43 @@ async def mcp_handler(request: Request):
             content_type = res.headers.get("content-type", "")
 
             if "application/json" in content_type:
-                data = res.json()
+                content = res.json()
             else:
-                data = res.text
+                content = res.text
 
             return {
-                "tool": tool,
-                "status": res.status_code,
-                "result": data
+                "id": request_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": str(content)
+                        }
+                    ]
+                }
             }
 
         return {
-            "error": f"Unknown tool: {tool}",
-            "available_tools": ["get_projects"]
+            "id": request_id,
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Unknown tool: {tool}"
+                    }
+                ]
+            }
         }
 
     except Exception as e:
         return {
-            "error": "MCP handler crashed",
-            "details": str(e)
+            "id": 1,
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error: {str(e)}"
+                    }
+                ]
+            }
         }
