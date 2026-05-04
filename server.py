@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 import requests
 import os
 
@@ -7,12 +8,12 @@ app = FastAPI()
 AZDO_ORG = os.getenv("AZDO_ORG")
 AZDO_PROJECT = os.getenv("AZDO_PROJECT")
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD", "OPTIONS"])
 def root():
-    return {
+    return JSONResponse({
         "status": "ok",
         "service": "ado-mcp-server"
-    }
+    })
 
 @app.get("/.well-known/mcp")
 def mcp_manifest():
@@ -46,9 +47,7 @@ async def mcp_handler(request: Request):
         if tool == "get_projects":
 
             if not AZDO_ORG:
-                return {
-                    "error": "AZDO_ORG environment variable not set"
-                }
+                return {"error": "AZDO_ORG not set"}
 
             url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
 
