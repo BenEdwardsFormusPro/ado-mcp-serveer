@@ -40,6 +40,7 @@ def debug():
 
 @app.post("/mcp")
 async def mcp_handler(request: Request):
+
     try:
         body = await request.json()
     except:
@@ -48,49 +49,58 @@ async def mcp_handler(request: Request):
     tool = body.get("tool") or body.get("name")
     request_id = body.get("id", 1)
 
-    if tool == "get_projects":
+    def stream():
 
-        url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
+        if tool == "get_projects":
 
-        try:
-            import requests
-            res = requests.get(url)
+            url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
 
-            content = res.json() if "application/json" in res.headers.get("content-type", "") else res.text
+            try:
+                import requests
+                res = requests.get(url)
 
-            return {
-                "id": request_id,
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": str(content)
-                        }
-                    ]
+                content = res.json() if "application/json" in res.headers.get("content-type", "") else res.text
+
+                payload = {
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": str(content)
+                            }
+                        ]
+                    }
                 }
+
+            except Exception as e:
+                payload = {
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Error: {str(e)}"
+                            }
+                        ]
+                    }
+                }
+
+            yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+            return
+
+        payload = {
+            "id": request_id,
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Unknown tool: {tool}"
+                    }
+                ]
             }
-
-        except Exception as e:
-            return {
-                "id": request_id,
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Azure DevOps call failed: {str(e)}"
-                        }
-                    ]
-                }
-            }
-
-    return {
-        "id": request_id,
-        "result": {
-            "content": [
-                {
-                    "type": "text",
-                    "text": f"Unknown tool: {tool}"
-                }
-            ]
         }
-    }
+
+        yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
