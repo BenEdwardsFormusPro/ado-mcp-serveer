@@ -35,28 +35,24 @@ def manifest():
 @app.post("/mcp")
 async def mcp_handler(request: Request):
 
-    body = await request.json()
+    try:
+        raw = await request.body()
+
+        if raw:
+            body = json.loads(raw.decode("utf-8"))
+        else:
+            body = {}
+
+    except Exception:
+        body = {}
+
     tool = body.get("tool")
     request_id = body.get("id", 1)
 
-    if not AZDO_PAT or not AZDO_ORG:
-        payload = {
-            "id": request_id,
-            "result": {
-                "content": [
-                    {"type": "text", "text": "Missing AZDO_PAT or AZDO_ORG"}
-                ]
-            }
-        }
-        return Response(
-            content="data: " + json.dumps(payload) + "\n\n",
-            media_type="text/event-stream"
-        )
-
-    token = base64.b64encode(f":{AZDO_PAT}".encode()).decode()
+    access_token = request.headers.get("authorization", "").replace("Bearer ", "").replace("Basic ", "")
 
     headers = {
-        "Authorization": f"Basic {token}"
+        "Authorization": request.headers.get("authorization", "")
     }
 
     try:
