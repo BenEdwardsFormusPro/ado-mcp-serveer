@@ -48,13 +48,48 @@ async def mcp_handler(request: Request):
     tool = body.get("tool") or body.get("name")
     request_id = body.get("id", 1)
 
+    if tool == "get_projects":
+
+        url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
+
+        try:
+            import requests
+            res = requests.get(url)
+
+            content = res.json() if "application/json" in res.headers.get("content-type", "") else res.text
+
+            return {
+                "id": request_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": str(content)
+                        }
+                    ]
+                }
+            }
+
+        except Exception as e:
+            return {
+                "id": request_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Azure DevOps call failed: {str(e)}"
+                        }
+                    ]
+                }
+            }
+
     return {
         "id": request_id,
         "result": {
             "content": [
                 {
                     "type": "text",
-                    "text": f"Received tool: {tool}"
+                    "text": f"Unknown tool: {tool}"
                 }
             ]
         }
