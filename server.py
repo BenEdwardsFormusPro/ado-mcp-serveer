@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import Response
 import requests
 import os
 import json
@@ -10,9 +9,31 @@ app = FastAPI()
 AZDO_ORG = os.getenv("AZDO_ORG")
 AZDO_PAT = os.getenv("AZDO_PAT")
 
+
+def make_auth_header():
+    token = base64.b64encode(f":{AZDO_PAT}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
+
+
 @app.get("/")
 def root():
-    return {"status": "ok"}
+    return {"status": "ok", "message": "MCP server running"}
+
+
+@app.post("/")
+async def root_post(request: Request):
+    try:
+        body = await request.body()
+        parsed = json.loads(body.decode("utf-8")) if body else {}
+    except:
+        parsed = {}
+
+    return {
+        "status": "ok",
+        "message": "Use /mcp for MCP requests",
+        "received": parsed
+    }
+
 
 @app.get("/.well-known/mcp")
 def manifest():
@@ -32,28 +53,26 @@ def manifest():
         ]
     }
 
+
 @app.post("/mcp")
 async def mcp_handler(request: Request):
 
     try:
-        raw = await request.body()
+        body = await request.body()
+        data = json.loads(body.decode("utf-8")) if body else {}
+    except:
+        data = {}
 
-        if raw:
-            body = json.loads(raw.decode("utf-8"))
-        else:
-            body = {}
+    tool = data.get("tool")
+    request_id = data.get("id", 1)
 
-    except Exception:
-        body = {}
+    if not AZDO_ORG or not AZDO_PAT:
+        return {
+            "id": request_id,
+            "error": "Missing AZDO_ORG or AZDO_PAT"
+        }
 
-    tool = body.get("tool")
-    request_id = body.get("id", 1)
-
-    access_token = request.headers.get("authorization", "").replace("Bearer ", "").replace("Basic ", "")
-
-    headers = {
-        "Authorization": request.headers.get("authorization", "")
-    }
+    headers = make_auth_header()
 
     try:
 
@@ -62,13 +81,15 @@ async def mcp_handler(request: Request):
             url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
             res = requests.get(url, headers=headers)
 
+            result_text = res.text
+
             payload = {
                 "id": request_id,
                 "result": {
                     "content": [
                         {
                             "type": "text",
-                            "text": res.text
+                            "text": result_text
                         }
                     ]
                 }
@@ -102,11 +123,4 @@ async def mcp_handler(request: Request):
             }
         }
 
-    return Response(
-        content="data: " + json.dumps(payload) + "\n\n",
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive"
-        }
-    )
+    return payload
