@@ -31,30 +31,41 @@ def mcp_manifest():
 
 @app.post("/mcp")
 async def mcp_handler(request: Request):
-    body = await request.json()
+    try:
+        body = await request.json()
 
-    access_token = request.headers.get("authorization", "").replace("Bearer ", "")
+        tool = body.get("tool") or body.get("name")
+        args = body.get("arguments") or body.get("input") or {}
 
-    if not access_token:
-        return {"error": "Missing token"}
+        access_token = request.headers.get("authorization", "").replace("Bearer ", "")
 
-    tool = body.get("tool") or body.get("name")
-    args = body.get("arguments") or body.get("input") or {}
+        if not access_token:
+            return {"error": "Missing token"}
 
-    if tool == "get_projects":
+        if tool == "get_projects":
 
-        url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
+            if not AZDO_ORG:
+                return {"error": "AZDO_ORG not set"}
 
-        res = requests.get(
-            url,
-            headers={
-                "Authorization": f"Bearer {access_token}"
+            url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
+
+            res = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {access_token}"
+                }
+            )
+
+            return {
+                "tool": tool,
+                "status": res.status_code,
+                "result": res.json() if res.headers.get("content-type","").startswith("application/json") else res.text
             }
-        )
 
+        return {"error": f"Unknown tool: {tool}"}
+
+    except Exception as e:
         return {
-            "tool": tool,
-            "result": res.json()
+            "error": "MCP handler crashed",
+            "details": str(e)
         }
-
-    return {"error": f"Unknown tool: {tool}"}
