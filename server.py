@@ -60,41 +60,42 @@ def manifest():
 
 @app.post("/mcp")
 async def mcp_handler(request: Request):
-
-    request_id = 1
-    tool = None
-
     try:
-        raw = await request.body()
-        if raw:
-            data = json.loads(raw.decode("utf-8"))
-        else:
-            data = {}
+        data = await request.json()
+    except:
+        data = {}
 
-        request_id = data.get("id", 1)
-        tool = data.get("tool")
+    request_id = data.get("id")
 
-    except Exception as e:
-        return mcp_response(request_id, f"Invalid request: {str(e)}")
+    if request_id is None:
+        request_id = 1
 
-    if not AZDO_ORG or not AZDO_PAT:
-        return mcp_response(request_id, "Missing AZDO_ORG or AZDO_PAT")
+    tool = data.get("tool")
 
-    headers = auth_header()
+    if tool == "get_projects":
+        url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
+        res = requests.get(url, headers=auth_header(), timeout=10)
 
-    try:
+        return {
+            "id": request_id,
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": res.text
+                    }
+                ]
+            }
+        }
 
-        if tool == "get_projects":
-
-            url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
-            res = requests.get(url, headers=headers, timeout=10)
-
-            return mcp_response(
-                request_id,
-                json.dumps(res.json(), indent=2)
-            )
-
-        return mcp_response(request_id, f"Unknown tool: {tool}")
-
-    except Exception as e:
-        return mcp_response(request_id, str(e))
+    return {
+        "id": request_id,
+        "result": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Unknown tool: {tool}"
+                }
+            ]
+        }
+    }
