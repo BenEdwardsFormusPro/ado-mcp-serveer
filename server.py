@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 import requests
 import os
+import json
 
 app = FastAPI()
 
@@ -31,20 +33,20 @@ def mcp_manifest():
 
 @app.post("/mcp")
 async def mcp_handler(request: Request):
-    try:
-        body = await request.json()
+    body = await request.json()
 
-        tool = body.get("tool") or body.get("name")
-        args = body.get("arguments") or body.get("input") or {}
-        request_id = body.get("id", 1)
+    tool = body.get("tool") or body.get("name")
+    request_id = body.get("id", 1)
 
-        auth_header = request.headers.get("authorization", "")
-        access_token = auth_header.replace("Bearer ", "") if auth_header else None
+    auth_header = request.headers.get("authorization", "")
+    access_token = auth_header.replace("Bearer ", "") if auth_header else None
+
+    def stream():
 
         if tool == "get_projects":
 
             if not AZDO_ORG:
-                return {
+                payload = {
                     "id": request_id,
                     "result": {
                         "content": [
@@ -55,6 +57,8 @@ async def mcp_handler(request: Request):
                         ]
                     }
                 }
+                yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+                return
 
             url = f"https://dev.azure.com/{AZDO_ORG}/_apis/projects?api-version=7.0"
 
@@ -72,7 +76,7 @@ async def mcp_handler(request: Request):
             else:
                 content = res.text
 
-            return {
+            payload = {
                 "id": request_id,
                 "result": {
                     "content": [
@@ -84,7 +88,10 @@ async def mcp_handler(request: Request):
                 }
             }
 
-        return {
+            yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+            return
+
+        payload = {
             "id": request_id,
             "result": {
                 "content": [
@@ -96,15 +103,6 @@ async def mcp_handler(request: Request):
             }
         }
 
-    except Exception as e:
-        return {
-            "id": 1,
-            "result": {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Error: {str(e)}"
-                    }
-                ]
-            }
-        }
+        yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
